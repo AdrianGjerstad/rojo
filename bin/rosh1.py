@@ -3,8 +3,13 @@
 import readline
 from datetime import datetime
 import os
+import sys
 
 import rojo_interpreter as rojint
+
+if len(sys.argv) > 1:
+    if sys.argv[1] == "--private_restarted":
+        print("\033[1m\033[34mRestart completed!\033[0m")
 
 print("Rojo Shell v1 (ROSH1) (rojo1.0.0, UTC:%s)" % (datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
 print("Running on " + os.uname().sysname + " " + os.uname().machine)
@@ -91,6 +96,16 @@ while True:
                 print("\033[2J\033[1;1H\033[1m\033[35mCleared.\033[0m")
             else:
                 print("ArgImbalanceError (!clear does not take arguments)")
+        elif command == "restart":
+            if len(args) == 0:
+                print("\033[1m\033[35mRestarting without args...\033[0m")
+            else:
+                print("\033[1m\033[35mRestarting with args %s...\033[0m" % (str(args)[1:len(str(args))-1]))
+            print("\033[1m\033[33m\033[7mNOTE:\033[0m\033[1m\033[33m Code history will be reset, as the process is replaced.\033[0m")
+
+            args.insert(0, "--private_restarted")
+            args.insert(0, "arg_placeholder")
+            os.execvp(sys.argv[0], args)
         else:
             print("Unknown ROSH1 command: %s" % (text))
 
@@ -98,7 +113,7 @@ while True:
 
     # Not a ROSH command, lex, parse, and interpret
 
-    result, error = rojint.run(text)
+    result, error = rojint.run("<stdin>", text)
 
     if error:
         print(error)

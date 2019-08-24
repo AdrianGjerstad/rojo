@@ -9,41 +9,46 @@ DIGITS = '0123456789'
 ########################################
 
 class Error:
-    def __init__(self, error_name, details=''):
+    def __init__(self, pos_start, pos_end, error_name, details=''):
+        self.pos_start = pos_start
+        self.pos_end = pos_end
         self.error_name = error_name
         self.details = details
 
     def __repr__(self):
-        result = f'{self.error_name}{": " if self.details != "" else ""}{self.details}'
+        result  = f'{self.error_name}{": " if self.details != "" else ""}{self.details}\n'
+        result += f'File {self.pos_start.fname}, line {self.pos_start.ln + 1}'
 
         return result
 
 class IllegalCharacterError(Error):
-    def __init__(self, details=''):
-        super().__init__('IllegalCharacterError', details)
+    def __init__(self, pos_start, pos_end, details=''):
+        super().__init__(pos_start, pos_end, 'IllegalCharacterError', details)
 
 ########################################
 # POSITION
 ########################################
 
 class Position:
-    def __init__(self, idx, ln, col):
+    def __init__(self, idx, ln, col, fname, ftxt):
         self.idx = idx
         self.ln = ln
         self.col = col
+        self.fname = fname
+        self.ftxt = ftxt
 
     def advance(self, current_char):
         self.idx += 1
         self.col += 1
 
-        if current_char in "\r\n":
+        if current_char == "\n":
             self.ln += 1
             self.col = 0
 
         return self
 
     def copy(self):
-        return Position(self.idx, self.ln, self.col)
+        return Position(self.idx, self.ln, self.col, self.fname, self.ftxt)
 
 ########################################
 # TOKENS
@@ -73,14 +78,14 @@ class Token:
 ########################################
 
 class Lexer:
-    def __init__(self, code):
+    def __init__(self, code, fname):
         self.code = code
-        self.pos = Position(-1, 0, -1)
+        self.pos = Position(-1, 0, -1, fname, code)
         self.current_char = None
         self.advance()
 
     def advance(self):
-        self.pos.advance()
+        self.pos.advance(self.current_char)
         self.current_char = self.code[self.pos.idx] if self.pos.idx < len(self.code) else None
 
     def lex(self):
@@ -113,9 +118,10 @@ class Lexer:
             elif self.current_char == ".":
                 tokens.append(self.make_number())
             else:
+                pos_start = self.pos.copy()
                 char = self.current_char
                 self.advance()
-                return [], IllegalCharacterError("'" + char + "'")
+                return [], IllegalCharacterError(pos_start, self.pos, "'" + char + "'")
 
         return tokens, None
 
@@ -142,8 +148,8 @@ class Lexer:
 # ENTRY (RUN)
 ########################################
 
-def run(code):
-    lexer = Lexer(code)
+def run(fname, code):
+    lexer = Lexer(code, fname)
     tokens, error = lexer.lex()
 
     return tokens, error
