@@ -4,6 +4,8 @@ import readline
 from datetime import datetime
 import os
 
+import rojo_interpreter as rojint
+
 print("Rojo Shell v1 (ROSH1) (rojo1.0.0, UTC:%s)" % (datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
 print("Running on " + os.uname().sysname + " " + os.uname().machine)
 print("Run ROSH commands by prefixing the line with '!'")
@@ -91,3 +93,14 @@ while True:
                 print("ArgImbalanceError (!clear does not take arguments)")
         else:
             print("Unknown ROSH1 command: %s" % (text))
+
+        continue
+
+    # Not a ROSH command, lex, parse, and interpret
+
+    result, error = rojint.run(text)
+
+    if error:
+        print(error)
+    else:
+        print(result)
