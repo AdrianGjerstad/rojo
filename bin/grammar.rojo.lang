@@ -1,0 +1,27 @@
+# Symbol Diagram
+#
+#          Chars | Meaning
+#     (...)      : Grouping
+#     |          : Or
+#     *          : 0 or more
+#     ?          : Optional (0 or 1)
+#     ... : ...  : Grammar element
+#     #          : Comment (to end of line)
+#     CAPS:...   : Token of that type (with value if neccessary)
+
+expr    : term ((PLUS|MINUS) term)*
+
+term    : factor ((MUL|DIV) factor)*
+
+factor  : INT|FLOAT
+
+# If something is lower in the file, it means that it has higher precedence.
+# This is why you see the rule for handling multiplication below the rule for
+# handling addition.
+
+# When writing in this file, please do not go over 80 columns on one line. To
+# wrap them, cut the comment at the 80 column mark, and add it as a comment on
+# the next line, like so.
+
+# If you look at the parser code, you will always start with the first element
+# in this file.
