@@ -116,6 +116,9 @@ while True:
 
     # Not a ROSH command, lex, parse, and interpret
 
-    ast = rojint.run("<stdin>", text)
+    result, error = rojint.run("<stdin>", text)
 
-    print(ast)
+    if error:
+        print(error)
+    else:
+        print(result)
