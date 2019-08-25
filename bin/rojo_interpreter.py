@@ -1,4 +1,10 @@
 ########################################
+# EXTERNALS
+########################################
+
+version = "1.0.0"
+
+########################################
 # CONSTANTS
 ########################################
 
@@ -172,7 +178,12 @@ class Lexer:
                 # Skip whitespace
                 self.advance()
             elif self.current_char in DIGITS:
-                tokens.append(self.make_number())
+                token, error = self.make_number()
+
+                if error:
+                    return [], error
+
+                tokens.append(token)
             elif self.current_char == "+":
                 tokens.append(Token(TT_PLUS, pos_start=self.pos))
                 self.advance()
@@ -192,7 +203,12 @@ class Lexer:
                 tokens.append(Token(TT_RPAREN, pos_start=self.pos))
                 self.advance()
             elif self.current_char == ".":
-                tokens.append(self.make_number())
+                token, error = self.make_number()
+
+                if error:
+                    return [], error
+
+                tokens.append(token)
             else:
                 pos_start = self.pos.copy()
                 char = self.current_char
@@ -218,9 +234,15 @@ class Lexer:
 
             self.advance()
 
+        if num_str == '.':
+            return None, IllegalCharacterError(
+                pos_start, self.pos,
+                "Unexpected '.'. Did you mean to add numbers after it?"
+            )
+
         if not dot:
-            return Token(TT_INT, int(num_str), pos_start, self.pos)
-        return Token(TT_FLOAT, float(num_str), pos_start, self.pos)
+            return Token(TT_INT, int(num_str), pos_start, self.pos), None
+        return Token(TT_FLOAT, float(num_str), pos_start, self.pos), None
 
 ########################################
 # NODES
@@ -518,19 +540,23 @@ class Interpreter:
 # ENTRY (RUN)
 ########################################
 
-def run(fname, code):
+def run(fname, code, settings):
     # Lex the code given to us by ROSH or the command line
     lexer = Lexer(code, fname)
     tokens, error = lexer.lex()
 
     if error:
         return None, error
+    elif settings["debug"]:
+        print("\033[1m\033[33mtok\033[0m   \033[1m\033[34m>\033[0m " + str(tokens))
 
     # Generate AbstractSyntaxTree with the tokens from the lexer
     parser = Parser(tokens)
     ast = parser.parse()
     if ast.error:
         return ast.node, ast.error
+    elif settings["debug"]:
+        print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m " + str(ast.node))
 
     # Execute code according to the AST from the parser
     interpreter = Interpreter()

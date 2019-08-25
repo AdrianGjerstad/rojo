@@ -7,21 +7,39 @@ import sys
 
 import rojo_interpreter as rojint
 
+MODE_DEBUG = False
+
+SHELL_VERSION = "1"
+INT_VERSION = rojint.version
+
 if len(sys.argv) > 1:
     if sys.argv[1] == "--private_restarted":
         print("\033[1m\033[34mRestart completed!\033[0m")
         sys.argv.remove("--private_restarted")
+    else:
+        print("Rojo Shell v%s (ROSH%s) (rojo%s, UTC:%s)" % (SHELL_VERSION, SHELL_VERSION, INT_VERSION, datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
+        print("Running on " + os.uname().sysname + " " + os.uname().machine)
+        print("Run ROSH commands by prefixing the line with '!'")
+        print("Type \"!help\", \"!copyright\", \"!credits\", or \"!license\" for more information.")
 
-print("Rojo Shell v1 (ROSH1) (rojo1.0.0, UTC:%s)" % (datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
-print("Running on " + os.uname().sysname + " " + os.uname().machine)
-print("Run ROSH commands by prefixing the line with '!'")
-print("Type \"!help\", \"!copyright\", \"!credits\", or \"!license\" for more information.")
+    for i in range(len(sys.argv)):
+        if sys.argv[i] == "--debug":
+            if MODE_DEBUG:
+                sys.argv.pop(i)
+            else:
+                MODE_DEBUG = True
+
+else:
+    print("Rojo Shell v%s (ROSH%s) (rojo%s, UTC:%s)" % (SHELL_VERSION, SHELL_VERSION, INT_VERSION, datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
+    print("Running on " + os.uname().sysname + " " + os.uname().machine)
+    print("Run ROSH commands by prefixing the line with '!'")
+    print("Type \"!help\", \"!copyright\", \"!credits\", or \"!license\" for more information.")
 
 while True:
     text = ""
 
     try:
-        text = input("\033[1m\033[32mrosh1 \033[34m>\033[0m ")
+        text = input("\033[1m\033[32mrosh%s \033[34m>\033[0m " % (SHELL_VERSION))
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt (Use !exit instead)")
         continue
@@ -50,7 +68,27 @@ while True:
                 print("Unexpected ROSH command argument: %s" % (args[1]))
                 print("ArgImbalanceError (!exit has one argument max)")
         elif command == "help":
-            print("NotImplementedError (Sorry for any inconvenience!)")
+            print("ROSH%s commands (Prefixed with '!')" % (SHELL_VERSION))
+            print("         !exit  Closes the shell")
+            print("                code: The exit code (Default 0)")
+            print("         !help  Displays this screen")
+            print("")
+            print("    !copyright  Displays copyright information about the shell and interpreter")
+            print("      !credits  Displays credits for shell and interpreter")
+            print("      !license  Displays license information about the shell and interpreter")
+            print("")
+            print("      !version  Displays the version of the shell and interpreter")
+            print("         !read  Displays all of the data from a file with line numbers")
+            print("                filename: The name of the file for reading")
+            print("        !clear  Clears the screen")
+            print("      !restart  Resets the current process with any code changes implemented")
+            print("                ...args: New flags and arguments to give the new process.")
+            print("                         (Default: current args)")
+            print("")
+            print("        !debug  Sets the debug mode (Shows token list and AST)")
+            print("                mode: Wether to turn debug off (Optional. Shows debug mode")
+            print("                      if no arguments are present)")
+
         elif command == "copyright":
             if len(args) == 0:
                 print("Copyright (c) 2019 Adrian Gjerstad. Type \"!license\" for license details.")
@@ -67,7 +105,7 @@ while True:
                 print("ArgImbalanceError (!credits does not take arguments)")
         elif command == "license":
             if len(args) == 0:
-                print("ROSH1 and rojo1.0.0 and other Rojo works are licensed under the GNU GPLv3.")
+                print("ROSH%s and rojo%s and other Rojo works are licensed under the GNU GPLv3." % (SHELL_VERSION, INT_VERSION))
                 print("Rojo is OpenSource, so you can contribute to Rojo. With your help,")
                 print("We can grow as a community!\n")
                 print("Rojo is distributed WITHOUT WARRANTY, NOT EVEN FOR MERCHANTIBILITY OR FITNESS.")
@@ -75,7 +113,7 @@ while True:
                 print("ArgImbalanceError (!license does not take arguments)")
         elif command == "version":
             if len(args) == 0:
-                print("Rojo Shell v1 (ROSH1) using Rojo v1.0.0")
+                print("Rojo Shell v%s (ROSH%s) using Rojo v%s" % (SHELL_VERSION, SHELL_VERSION, INT_VERSION))
                 print("ROSH versions are integers, because the shell doesn't get updated that often.")
             else:
                 print("ArgImbalanceError (!version does not take arguments)")
@@ -112,14 +150,32 @@ while True:
             args.insert(0, "--private_restarted")
             args.insert(0, "arg_placeholder")
             os.execvp(sys.argv[0], args)
+        elif command == "debug":
+            if len(args) == 1:
+                if args[0].lower() == "true" or args[0].lower() == "on":
+                    if not MODE_DEBUG:
+                        MODE_DEBUG = True
+                        sys.argv.append("--debug")
+                        print("\033[1m\033[34mDEBUG MODE: \033[0mOn")
+                elif args[0].lower() == "false" or args[0].lower() == "off":
+                    if MODE_DEBUG:
+                        MODE_DEBUG = False
+                        sys.argv.remove("--debug")
+                        print("\033[1m\033[34mDEBUG MODE: \033[0mOff")
+                else:
+                    print("UnkownArgError (!debug takes [true|on|false|off])")
+            elif len(args) == 0:
+                print("\033[1m\033[34mDEBUG MODE: \033[0m" + "On" if MODE_DEBUG else "Off")
+            else:
+                print("ArgImbalanceError (!debug takes one argument max)")
         else:
-            print("Unknown ROSH1 command: %s" % (text))
+            print("Unknown ROSH%s command: %s" % (SHELL_VERSION, text))
 
         continue
 
     # Not a ROSH command, lex, parse, and interpret
 
-    result, error = rojint.run("<stdin>", text)
+    result, error = rojint.run("<stdin>", text, {"debug":MODE_DEBUG})
 
     if error:
         print(error)
