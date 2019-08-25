@@ -13,8 +13,12 @@ expr    : term ((PLUS|MINUS) term)*
 
 term    : factor ((MUL|DIV) factor)*
 
-factor  : INT|FLOAT
-        : (PLUS|MINUS) factor
+factor  : (PLUS|MINUS) factor
+        : pow
+
+pow     : unit (POW factor)*
+
+unit    : INT|FLOAT
         : LPAREN expr RPAREN
 
 # If something is lower in the file, it means that it has higher precedence.
