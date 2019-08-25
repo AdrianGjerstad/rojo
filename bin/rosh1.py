@@ -10,6 +10,7 @@ import rojo_interpreter as rojint
 if len(sys.argv) > 1:
     if sys.argv[1] == "--private_restarted":
         print("\033[1m\033[34mRestart completed!\033[0m")
+        sys.argv.remove("--private_restarted")
 
 print("Rojo Shell v1 (ROSH1) (rojo1.0.0, UTC:%s)" % (datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
 print("Running on " + os.uname().sysname + " " + os.uname().machine)
@@ -97,10 +98,12 @@ while True:
             else:
                 print("ArgImbalanceError (!clear does not take arguments)")
         elif command == "restart":
+            for i in range(len(sys.argv)-1):
+                args.append(sys.argv[i+1])
             if len(args) == 0:
                 print("\033[1m\033[35mRestarting without args...\033[0m")
             else:
-                print("\033[1m\033[35mRestarting with args %s...\033[0m" % (str(args)[1:len(str(args))-1]))
+              print("\033[1m\033[35mRestarting with args %s...\033[0m" % (str(args)[1:len(str(args))-1]))
             print("\033[1m\033[33m\033[7mNOTE:\033[0m\033[1m\033[33m Code history will be reset, as the process is replaced.\033[0m")
 
             args.insert(0, "--private_restarted")
