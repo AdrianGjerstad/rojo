@@ -23,10 +23,13 @@ while True:
     try:
         text = input("\033[1m\033[32mrosh1 \033[34m>\033[0m ")
     except KeyboardInterrupt:
-        print("\b\bKeyboardInterrupt (Use !exit instead)")
+        print("\nKeyboardInterrupt (Use !exit instead)")
         continue
 
     text = text.strip()
+
+    if len(text) == 0:
+        continue
 
     if text[0] == "!":
         args = []
@@ -121,4 +124,4 @@ while True:
     if error:
         print(error)
     else:
-        print(result)
+        print("\033[1m\033[30mret\033[0m   \033[1m\033[34m<\033[0m " + str(result))
