@@ -545,18 +545,20 @@ def run(fname, code, settings):
     lexer = Lexer(code, fname)
     tokens, error = lexer.lex()
 
+    if settings["debug"]:
+        print("\033[1m\033[33mtok\033[0m   \033[1m\033[34m>\033[0m " + str(tokens))
+
     if error:
         return None, error
-    elif settings["debug"]:
-        print("\033[1m\033[33mtok\033[0m   \033[1m\033[34m>\033[0m " + str(tokens))
 
     # Generate AbstractSyntaxTree with the tokens from the lexer
     parser = Parser(tokens)
     ast = parser.parse()
+    if settings["debug"]:
+        print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m " + str(ast.node))
+    
     if ast.error:
         return ast.node, ast.error
-    elif settings["debug"]:
-        print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m " + str(ast.node))
 
     # Execute code according to the AST from the parser
     interpreter = Interpreter()
