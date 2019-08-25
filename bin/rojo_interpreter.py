@@ -248,7 +248,20 @@ class Lexer:
 # NODES
 ########################################
 
-class NumberNode:
+class ValueNode:
+    pass
+
+class IntegerNode(ValueNode):
+    def __init__(self, tok):
+        self.tok = tok
+
+        self.pos_start = self.tok.pos_start
+        self.pos_end = self.tok.pos_end
+
+    def __repr__(self):
+        return f'{self.tok}'
+
+class FloatNode(ValueNode):
     def __init__(self, tok):
         self.tok = tok
 
@@ -347,9 +360,13 @@ class Parser:
                 return res
             return res.success(UnaryOpNode(tok, factor))
 
-        elif tok.type in (TT_INT, TT_FLOAT):
+        elif tok.type in (TT_INT):
             res.register(self.advance())
-            return res.success(NumberNode(tok))
+            return res.success(IntegerNode(tok))
+
+        elif tok.type in (TT_FLOAT):
+            res.register(self.advance())
+            return res.success(FloatNode(tok))
 
         elif tok.type == TT_LPAREN:
             res.register(self.advance())
@@ -422,8 +439,9 @@ class RuntimeResult:
 ########################################
 
 class Number:
-    def __init__(self, value):
+    def __init__(self, value, type_):
         self.value = value
+        self.type = type_
         self.set_pos()
         self.set_context()
 
@@ -438,15 +456,22 @@ class Number:
 
     def added_to(self, other):
         if isinstance(other, Number):
-            return Number(self.value + other.value).set_context(self.context), None
+            type_ = TT_FLOAT if self.type == TT_FLOAT or other.type == TT_FLOAT else TT_INT
+            return Number(self.value + other.value, type_).set_context(self.context), None
 
     def subbed_by(self, other):
         if isinstance(other, Number):
-            return Number(self.value - other.value).set_context(self.context), None
+            type_ = TT_FLOAT if self.type == TT_FLOAT or other.type == TT_FLOAT else TT_INT
+            return Number(self.value - other.value, type_).set_context(self.context), None
 
     def multed_by(self, other):
         if isinstance(other, Number):
-            return Number(self.value * other.value).set_context(self.context), None
+            type_ = TT_FLOAT if self.type == TT_FLOAT or other.type == TT_FLOAT else TT_INT
+            val = Number(self.value * other.value, type_).set_context(self.context)
+            if val.value == int(val.value):
+                val.type = TT_INT
+
+            return val, None
 
     def dived_by(self, other):
         if isinstance(other, Number):
@@ -456,10 +481,18 @@ class Number:
                     "Division by zero"
                 )
 
-            return Number(self.value / other.value).set_context(self.context), None
+            type_ = TT_FLOAT if self.type == TT_FLOAT or other.type == TT_FLOAT else "unk"
+            val =  Number(self.value / other.value, type_).set_context(self.context)
+            if val.type == "unk" and val.value == int(val.value):
+                val.type = TT_INT
+
+            return val, None
 
     def __repr__(self):
-        return str(self.value)
+        if self.type == TT_INT:
+            return str(int(self.value))
+
+        return str(float(self.value))
 
 ########################################
 # CONTEXT
@@ -491,9 +524,13 @@ class Interpreter:
 
     ########################################
 
-    def visit_NumberNode(self, node, context):
+    def visit_IntegerNode(self, node, context):
         return RuntimeResult().success(
-            Number(node.tok.value).set_pos(node.pos_start, node.pos_end).set_context(context))
+            Number(node.tok.value, TT_INT).set_pos(node.pos_start, node.pos_end).set_context(context))
+
+    def visit_FloatNode(self, node, context):
+        return RuntimeResult().success(
+            Number(node.tok.value, TT_FLOAT).set_pos(node.pos_start, node.pos_end).set_context(context))
 
     def visit_BinOpNode(self, node, context):
         res = RuntimeResult()
@@ -529,7 +566,7 @@ class Interpreter:
         error = None
 
         if node.op_tok.type == TT_MINUS:
-            number, error = number.multed_by(Number(-1))
+            number, error = number.multed_by(Number(-1, TT_INT))
 
         if error:
             return res.failure(error)
@@ -556,7 +593,7 @@ def run(fname, code, settings):
     ast = parser.parse()
     if settings["debug"]:
         print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m " + str(ast.node))
-    
+
     if ast.error:
         return ast.node, ast.error
 
