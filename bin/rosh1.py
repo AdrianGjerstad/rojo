@@ -9,6 +9,8 @@ import rojo_interpreter as rojint
 
 MODE_DEBUG = False
 
+FROM_RCLT = False
+
 SHELL_VERSION = "1"
 INT_VERSION = rojint.version
 
@@ -28,12 +30,17 @@ if len(sys.argv) > 1:
                 sys.argv.pop(i)
             else:
                 MODE_DEBUG = True
+        if sys.argv[i] == "--private_rclt":
+            FROM_RCLT = True
 
 else:
     print("Rojo Shell v%s (ROSH%s) (rojo%s, UTC:%s)" % (SHELL_VERSION, SHELL_VERSION, INT_VERSION, datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
     print("Running on " + os.uname().sysname + " " + os.uname().machine)
     print("Run ROSH commands by prefixing the line with '!'")
     print("Type \"!help\", \"!copyright\", \"!credits\", or \"!license\" for more information.")
+
+if not FROM_RCLT:
+    print("\033[1m\033[33m\033[7mNOTE:\033[0m\033[1m\033[33m To get maximum efficiency and use, please run the command line tool\n`rojo` instead.\033[0m")
 
 while True:
     text = ""

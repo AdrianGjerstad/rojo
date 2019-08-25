@@ -5,5 +5,5 @@ function rojo() {
   SCRIPTPATH=$(dirname "$SCRIPT")
 
   chmod 775 "$SCRIPTPATH/rosh1.py"
-  $SCRIPTPATH/rosh1.py $@
+  $SCRIPTPATH/rosh1.py $@ --private_rclt
 }
