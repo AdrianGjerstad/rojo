@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+
+# The shebang line above is not neccessary, but for a complete look, it should
+# exist.
+
 ########################################
 # EXTERNALS
 ########################################
@@ -143,6 +148,8 @@ TT_LPAREN  = "LPAREN"
 TT_RPAREN  = "RPAREN"
 TT_EOF     = "EOF"
 
+TT_ERROR   = "ERROR"
+
 class Token:
     def __init__(self, type_, value=None, pos_start=None, pos_end=None):
         self.type = type_
@@ -186,7 +193,8 @@ class Lexer:
                 token, error = self.make_number()
 
                 if error:
-                    return [], error
+                    tokens.append(Token(TT_ERROR, self.current_char))
+                    return tokens, error
 
                 tokens.append(token)
             elif self.current_char == "+":
@@ -197,7 +205,6 @@ class Lexer:
                 self.advance()
             elif self.current_char == "*":
                 tokens.append(self.make_pow_or_mul())
-                self.advance()
             elif self.current_char == "/":
                 tokens.append(Token(TT_DIV, pos_start=self.pos))
                 self.advance()
@@ -211,14 +218,17 @@ class Lexer:
                 token, error = self.make_number()
 
                 if error:
-                    return [], error
+                    tokens.append(Token(TT_ERROR, self.current_char))
+                    return tokens, error
 
                 tokens.append(token)
             else:
                 pos_start = self.pos.copy()
                 char = self.current_char
                 self.advance()
-                return [], IllegalCharacterError(pos_start, self.pos, "'" + char + "'")
+
+                tokens.append(Token(TT_ERROR, char))
+                return tokens, IllegalCharacterError(pos_start, self.pos, "'" + char + "'")
 
         tokens.append(Token(TT_EOF, pos_start=self.pos))
         return tokens, None
@@ -241,8 +251,8 @@ class Lexer:
 
         if num_str == '.':
             return None, IllegalCharacterError(
-                pos_start, self.pos,
-                "Unexpected '.'. Did you mean to add numbers after it?"
+                pos_start.advance(), self.pos.copy().advance(),
+                "'" + self.current_char + "'"
             )
 
         if not dot:
@@ -262,6 +272,13 @@ class Lexer:
 ########################################
 # NODES
 ########################################
+
+class AbstractSyntaxTree:
+    def __init__(self, node=None):
+        self.node = node
+
+    def __repr__(self):
+        return str(self.node)
 
 class ValueNode:
     pass
@@ -330,7 +347,8 @@ class ParseResult:
         self.node = node
         return self
 
-    def failure(self, error):
+    def failure(self, node, error):
+        self.node = node
         self.error = error
         return self
 
@@ -355,11 +373,13 @@ class Parser:
     def parse(self):
         res = self.expr()
         if not res.error and self.current_tok.type != TT_EOF:
-            return res.failure(InvalidSyntaxError(
+            return res.failure(res.node, InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected '+', '-', '*', or '/'"
-            ))
-        return res
+                "Expected '+', '-', '*', '/',  '**'"
+            )).node, res.error
+        if res.error:
+            return AbstractSyntaxTree(res.node), res.error
+        return AbstractSyntaxTree(res.node), res.error
 
     ########################################
 
@@ -385,14 +405,14 @@ class Parser:
                 res.register(self.advance())
                 return res.success(expr)
             else:
-                return res.failure(InvalidSyntaxError(
+                return res.failure(expr, InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
                     "Expected ')'"
                 ))
 
-        return res.failure(InvalidSyntaxError(
+        return res.failure(res.node, InvalidSyntaxError(
             tok.pos_start, tok.pos_end,
-            "Expected int, float, '+', '-', or'('"
+            "Expected int, float, or '('"
         ))
 
     def power(self):
@@ -525,7 +545,7 @@ class Number:
             if type(val.value).__name__ == "complex":
                 return None, RangeError(
                     self.pos_start, other.pos_end, self.context,
-                    "nth root of a value where n is even (Complex number created)"
+                    "pow(x, y) where x < 0 and y is not whole has undefined behavior.\n(Complex number created)"
                 )
 
             if val.value == int(val.value):
@@ -568,6 +588,16 @@ class Interpreter:
         raise Exception("RojoInternals: No visit method for " + type(node).__name__ + " class.")
 
     ########################################
+
+    def visit_AbstractSyntaxTree(self, node, context):
+        res = RuntimeResult()
+
+        node_ = res.register(self.visit(node.node, context))
+
+        if res.error:
+            return res
+
+        return res.success(node_)
 
     def visit_IntegerNode(self, node, context):
         return RuntimeResult().success(
@@ -633,16 +663,18 @@ def run(fname, code, settings):
         print("\033[1m\033[33mtok\033[0m   \033[1m\033[34m>\033[0m " + str(tokens))
 
     if error:
+        if settings["debug"]: print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m Unavailable (Parser Not Reached)")
         return None, error
 
     # Generate AbstractSyntaxTree with the tokens from the lexer
     parser = Parser(tokens)
-    ast = parser.parse()
-    if settings["debug"]:
-        print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m " + str(ast.node))
+    ast, error = parser.parse()
+    if settings["debug"] and not error:
+        print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m " + str(ast))
 
-    if ast.error:
-        return ast.node, ast.error
+    if error:
+        if settings["debug"]: print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m Unavailable (Parser Error)")
+        return ast, error
 
     # Execute code according to the AST from the parser
     interpreter = Interpreter()
