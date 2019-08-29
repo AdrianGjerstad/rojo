@@ -168,10 +168,6 @@ class Token:
             return f'{self.type}:{self.value}'
         return f'{self.type}'
 
-DEBUG_HIGHLIGHT_RED    = (TT_ERROR)
-DEBUG_HIGHLIGHT_BLUE   = (TT_EOF)
-DEBUG_HIGHLIGHT_GREEN  = (TT_PLUS, TT_MINUS, TT_MUL, TT_DIV, TT_MOD, TT_POW)
-
 ########################################
 # LEXER
 ########################################
@@ -321,7 +317,7 @@ class BinOpNode:
         self.pos_end = self.right_node.pos_end
 
     def __repr__(self):
-        return f'({self.left_node}, {str(self.op_tok)}, {self.right_node})'
+        return f'BinOpNode:({self.left_node}, {str(self.op_tok)}, {self.right_node})'
 
 class UnaryOpNode:
     def __init__(self, op_tok, node):
@@ -332,7 +328,7 @@ class UnaryOpNode:
         self.pos_end = self.node.pos_end
 
     def __repr__(self):
-        return f'({self.op_tok}, {self.node})'
+        return f'UnaryOpNode:({self.op_tok}, {self.node})'
 
 ########################################
 # PARSE RESULT
@@ -441,7 +437,7 @@ class Parser:
         return self.power()
 
     def term(self):
-        return self.bin_op(self.factor, (TT_MUL, TT_DIV))
+        return self.bin_op(self.factor, (TT_MUL, TT_DIV, TT_MOD))
 
     def expr(self):
         return self.bin_op(self.term, (TT_PLUS, TT_MINUS))
@@ -544,6 +540,23 @@ class Number:
 
             return val, None
 
+    def modded_by(self, other):
+        if isinstance(other, Number):
+            if other.value == 0:
+                return None, DivisionByZeroError(
+                    other.pos_start, other.pos_end, self.context,
+                    "Division by zero"
+                )
+
+            type_ = TT_FLOAT if self.type == TT_FLOAT or other.type == TT_FLOAT else "unk"
+            val =  Number(self.value % other.value, type_).set_context(self.context)
+            if val.type == "unk" and val.value == int(val.value):
+                val.type = TT_INT
+            else:
+                val.type = TT_FLOAT
+
+            return val, None
+
     def powed_by(self, other):
         if isinstance(other, Number):
             type_ = TT_FLOAT if self.type == TT_FLOAT or other.type == TT_FLOAT else TT_INT
@@ -633,6 +646,8 @@ class Interpreter:
             result, error = left.multed_by(right)
         elif node.op_tok.type == TT_DIV:
             result, error = left.dived_by(right)
+        elif node.op_tok.type == TT_MOD:
+            result, error = left.modded_by(right)
         elif node.op_tok.type == TT_POW:
             result, error = left.powed_by(right)
 
