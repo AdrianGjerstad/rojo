@@ -143,6 +143,7 @@ TT_PLUS    = "PLUS"
 TT_MINUS   = "MINUS"
 TT_MUL     = "MUL"
 TT_DIV     = "DIV"
+TT_MOD     = "MOD"
 TT_POW     = "POW"
 TT_LPAREN  = "LPAREN"
 TT_RPAREN  = "RPAREN"
@@ -207,6 +208,9 @@ class Lexer:
                 tokens.append(self.make_pow_or_mul())
             elif self.current_char == "/":
                 tokens.append(Token(TT_DIV, pos_start=self.pos))
+                self.advance()
+            elif self.current_char == "%":
+                tokens.append(Token(TT_MOD, pos_start=self.pos))
                 self.advance()
             elif self.current_char == "(":
                 tokens.append(Token(TT_LPAREN, pos_start=self.pos))
@@ -516,8 +520,6 @@ class Number:
         if isinstance(other, Number):
             type_ = TT_FLOAT if self.type == TT_FLOAT or other.type == TT_FLOAT else TT_INT
             val = Number(self.value * other.value, type_).set_context(self.context)
-            if val.value == int(val.value):
-                val.type = TT_INT
 
             return val, None
 
@@ -543,9 +545,11 @@ class Number:
             type_ = TT_FLOAT if self.type == TT_FLOAT or other.type == TT_FLOAT else TT_INT
             val = Number(self.value ** other.value, type_).set_context(self.context)
             if type(val.value).__name__ == "complex":
+                sign = "+" if val.value.imag >= 0 else "-"
                 return None, RangeError(
                     self.pos_start, other.pos_end, self.context,
-                    "pow(x, y) where x < 0 and y is not whole has undefined behavior.\n(Complex number created)"
+                    "pow(x, y) where x < 0 and y is not whole has undefined behavior.\n(Complex number created: " +
+                    str(val.value.real) + sign + str(abs(val.value.imag)) + "i)"
                 )
 
             if val.value == int(val.value):
