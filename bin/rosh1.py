@@ -18,6 +18,9 @@ if len(sys.argv) > 1:
     if sys.argv[1] == "--private_restarted":
         print("\033[1m\033[34mRestart completed!\033[0m")
         sys.argv.remove("--private_restarted")
+    elif sys.argv[1] == "--private_revived":
+        print("\033[1m\033[34mRevived!\033[0m")
+        sys.argv.remove("--private_revived")
     else:
         print("Rojo Shell v%s (ROSH%s) (rojo%s, UTC:%s)" % (SHELL_VERSION, SHELL_VERSION, INT_VERSION, datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
         print("Running on " + os.uname().sysname + " " + os.uname().machine)

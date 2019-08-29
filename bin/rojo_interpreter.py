@@ -4,6 +4,38 @@
 # exist.
 
 ########################################
+# IMPORTS
+########################################
+
+import sys
+import os
+
+########################################
+# GLOBAL EXCEPTION HANDLER
+########################################
+
+def my_except_hook(exctype, value, traceback):
+    print("\033[1m\033[31mRojoInternals Error:\033[0m\n" + exctype.__name__ + ": " + str(value))
+
+    args = []
+
+    for i in range(len(sys.argv)-1):
+        args.append(sys.argv[i+1])
+    if len(args) != 0:
+        approved = args.copy()
+        for i in range(len(approved)):
+            if approved[i].startswith("--private_"):
+                approved.pop(i)
+                i -= 1
+
+    args.insert(0, "--private_revived")
+    args.insert(0, "arg_placeholder")
+    print("\033[1m\033[35mReviving...\033[0m")
+    os.execvp(sys.argv[0], args)
+
+sys.excepthook = my_except_hook
+
+########################################
 # EXTERNALS
 ########################################
 
@@ -606,7 +638,7 @@ class Interpreter:
     ########################################
 
     def no_visit(self, node, context):
-        raise Exception("RojoInternals: No visit method for " + type(node).__name__ + " class.")
+        raise Exception("No visit method for " + type(node).__name__ + " class.")
 
     ########################################
 
@@ -706,7 +738,7 @@ def run(fname, code, settings):
     # Execute code according to the AST from the parser
     interpreter = Interpreter()
     context = Context('<global>')
-    result = interpreter.visit(ast.node, context)
+    result = interpreter.visit(ast, context)
 
     if result.error and settings["debug"]:
         print("\033[1m\033[31mInterpreter Error Encountered\033[0m")
