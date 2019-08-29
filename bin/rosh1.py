@@ -151,7 +151,12 @@ while True:
             if len(args) == 0:
                 print("\033[1m\033[35mRestarting without args...\033[0m")
             else:
-              print("\033[1m\033[35mRestarting with args %s...\033[0m" % (str(args)[1:len(str(args))-1]))
+                approved = args.copy()
+                for i in range(len(approved)):
+                    if approved[i].startswith("--private_"):
+                        approved.pop(i)
+                        i -= 1
+                print("\033[1m\033[35mRestarting with args %s...\033[0m" % (str(approved)[1:len(str(approved))-1]))
             print("\033[1m\033[33m\033[7mNOTE:\033[0m\033[1m\033[33m Code history will be reset, as the process is replaced.\033[0m")
 
             args.insert(0, "--private_restarted")

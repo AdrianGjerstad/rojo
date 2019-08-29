@@ -168,6 +168,10 @@ class Token:
             return f'{self.type}:{self.value}'
         return f'{self.type}'
 
+DEBUG_HIGHLIGHT_RED    = (TT_ERROR)
+DEBUG_HIGHLIGHT_BLUE   = (TT_EOF)
+DEBUG_HIGHLIGHT_GREEN  = (TT_PLUS, TT_MINUS, TT_MUL, TT_DIV, TT_MOD, TT_POW)
+
 ########################################
 # LEXER
 ########################################
@@ -667,7 +671,9 @@ def run(fname, code, settings):
         print("\033[1m\033[33mtok\033[0m   \033[1m\033[34m>\033[0m " + str(tokens))
 
     if error:
-        if settings["debug"]: print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m Unavailable (Parser Not Reached)")
+        if settings["debug"]:
+            print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m Unavailable (Parser Not Reached)")
+            print("\033[1m\033[31mLexing Error Encountered\033[0m")
         return None, error
 
     # Generate AbstractSyntaxTree with the tokens from the lexer
@@ -677,12 +683,17 @@ def run(fname, code, settings):
         print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m " + str(ast))
 
     if error:
-        if settings["debug"]: print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m Unavailable (Parser Error)")
+        if settings["debug"]:
+            print("\033[1m\033[33mast\033[0m   \033[1m\033[34m>\033[0m Unavailable (Parser Error)")
+            print("\033[1m\033[31mParsing Error Encountered\033[0m")
         return ast, error
 
     # Execute code according to the AST from the parser
     interpreter = Interpreter()
     context = Context('<global>')
     result = interpreter.visit(ast.node, context)
+
+    if result.error and settings["debug"]:
+        print("\033[1m\033[31mInterpreter Error Encountered\033[0m")
 
     return result.value, result.error
