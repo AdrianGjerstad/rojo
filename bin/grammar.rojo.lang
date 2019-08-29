@@ -13,7 +13,7 @@ expr    : term ((PLUS|MINUS) term)*
 
 term    : factor ((MUL|DIV|MOD) factor)*
 
-factor  : (PLUS|MINUS) factor
+factor  : (PLUS|MINUS)? factor
         : pow
 
 pow     : unit (POW factor)*
