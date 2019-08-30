@@ -8,6 +8,11 @@
 #     ... : ...  : Grammar element
 #     #          : Comment (to end of line)
 #     CAPS:...   : Token of that type (with value if neccessary)
+#
+# NOTE: This file keeps track of how the PARSER manipulates tokens to create the
+# Abstract Syntax Tree. Therefore, spaces can be used liberally with no effects.
+
+var-def : ((KEYWORD:int|KEYWORD:float)? IDENTIFIER EQ)? expr
 
 expr    : term ((PLUS|MINUS) term)*
 
@@ -18,8 +23,8 @@ factor  : (PLUS|MINUS)? factor
 
 pow     : unit (POW factor)*
 
-unit    : INT|FLOAT
-        : LPAREN expr RPAREN
+unit    : INT|FLOAT|IDENTIFIER
+        : LPAREN var-def RPAREN
 
 # If something is lower in the file, it means that it has higher precedence.
 # This is why you see the rule for handling multiplication below the rule for

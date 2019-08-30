@@ -14,27 +14,31 @@ FROM_RCLT = False
 SHELL_VERSION = "1"
 INT_VERSION = rojint.version
 
-if len(sys.argv) > 1:
-    if sys.argv[1] == "--private_restarted":
-        print("\033[1m\033[34mRestart completed!\033[0m")
-        sys.argv.remove("--private_restarted")
-    elif sys.argv[1] == "--private_revived":
-        print("\033[1m\033[34mRevived!\033[0m")
-        sys.argv.remove("--private_revived")
-    else:
-        print("Rojo Shell v%s (ROSH%s) (rojo%s, UTC:%s)" % (SHELL_VERSION, SHELL_VERSION, INT_VERSION, datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
-        print("Running on " + os.uname().sysname + " " + os.uname().machine)
-        print("Run ROSH commands by prefixing the line with '!'")
-        print("Type \"!help\", \"!copyright\", \"!credits\", or \"!license\" for more information.")
+exe_list = []
 
+if len(sys.argv) > 1:
     for i in range(len(sys.argv)):
         if sys.argv[i] == "--debug":
             if MODE_DEBUG:
                 sys.argv.pop(i)
             else:
                 MODE_DEBUG = True
+        if sys.argv[i].endswith(".rojo") or sys.argv[i].endswith(".roj"):
+            exe_list.append(sys.argv[i])
         if sys.argv[i] == "--private_rclt":
             FROM_RCLT = True
+
+    if sys.argv[1] == "--private_restarted":
+        print("\033[1m\033[34mRestart completed!\033[0m")
+        sys.argv.remove("--private_restarted")
+    elif sys.argv[1] == "--private_revived":
+        print("\033[1m\033[34mRevived!\033[0m")
+        sys.argv.remove("--private_revived")
+    elif len(exe_list) == 0:
+        print("Rojo Shell v%s (ROSH%s) (rojo%s, UTC:%s)" % (SHELL_VERSION, SHELL_VERSION, INT_VERSION, datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
+        print("Running on " + os.uname().sysname + " " + os.uname().machine)
+        print("Run ROSH commands by prefixing the line with '!'")
+        print("Type \"!help\", \"!copyright\", \"!credits\", or \"!license\" for more information.")
 
 else:
     print("Rojo Shell v%s (ROSH%s) (rojo%s, UTC:%s)" % (SHELL_VERSION, SHELL_VERSION, INT_VERSION, datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")))
@@ -44,6 +48,19 @@ else:
 
 if not FROM_RCLT:
     print("\033[1m\033[33m\033[7mNOTE:\033[0m\033[1m\033[33m To get maximum efficiency and use, please run the command line tool\n`rojo` instead.\033[0m")
+
+if len(exe_list) > 0:
+    for i in range(len(exe_list)):
+        if not os.path.exists(exe_list[i]):
+            print("\033[1m\033[31Execution Error:\033[0m File `%s` does not exist" % (exe_list[i]))
+        result, error = rojint.run(exe_list[i], open(exe_list[i], "r").read(), {"debug":MODE_DEBUG})
+
+        if error:
+            print(error)
+        else:
+            print("\033[1m\033[30mret\033[0m   \033[1m\033[34m<\033[0m " + str(result))
+
+    sys.exit(0)
 
 while True:
     text = ""
@@ -189,7 +206,6 @@ while True:
         continue
 
     # Not a ROSH command, lex, parse, and interpret
-
     result, error = rojint.run("<stdin>", text, {"debug":MODE_DEBUG})
 
     if error:

@@ -15,7 +15,7 @@ import os
 ########################################
 
 def my_except_hook(exctype, value, traceback):
-    print("\033[1m\033[31mRojoInternals Error:\033[0m\n" + exctype.__name__ + ": " + str(value))
+    print("\033[1m\033[31mRojoInternals Error:\033[0m\n" + exctype.__name__ + ": " + str(value) + "\n" + traceback)
 
     args = []
 
@@ -142,6 +142,18 @@ class RangeError(RuntimeError):
     def __init__(self, pos_start, pos_end, context, details=''):
         super().__init__(pos_start, pos_end, context, "RangeError", details)
 
+class NotDefinedError(RuntimeError):
+    def __init__(self, pos_start, pos_end, context, details=''):
+        super().__init__(pos_start, pos_end, context, "NotDefinedError", details)
+
+class AlreadyDefinedError(RuntimeError):
+    def __init__(self, pos_start, pos_end, context, details=''):
+        super().__init__(pos_start, pos_end, context, "AlreadyDefinedError", details)
+
+class TypeError_(RuntimeError):
+    def __init__(self, pos_start, pos_end, context, details=''):
+        super().__init__(pos_start, pos_end, context, "TypeError", details)
+
 ########################################
 # POSITION
 ########################################
@@ -204,6 +216,9 @@ class Token:
 
         if pos_end:
             self.pos_end = pos_end.copy()
+
+    def matches(self, type_, value):
+        return type_ == self.type and value == self.value
 
     def __repr__(self):
         if self.value is not None:
@@ -365,6 +380,33 @@ class FloatNode(ValueNode):
     def __repr__(self):
         return f'{self.tok}'
 
+class VarAccessNode:
+    def __init__(self, var_name_tok):
+        self.var_name_tok = var_name_tok
+
+        self.pos_start = self.var_name_tok.pos_start
+        self.pos_end = self.var_name_tok.pos_end
+
+    def __repr__(self):
+        return str(self.var_name_tok)
+
+class VarAssignNode:
+    def __init__(self, type_, var_name_tok, value):
+        self.type = type_
+        self.var_name_tok = var_name_tok
+        self.value = value
+        self.used_type = self.type is not None
+
+        if self.type:
+            self.pos_start = self.type.pos_start
+        else:
+            self.pos_start = self.var_name_tok.pos_start
+
+        self.pos_end = self.value.pos_end
+
+    def __repr__(self):
+        return f'VarAssignNode:({self.var_name_tok}, {self.value})'
+
 class BinOpNode:
     def __init__(self, left_node, op_tok, right_node):
         self.left_node = left_node
@@ -409,8 +451,7 @@ class ParseResult:
         self.node = node
         return self
 
-    def failure(self, node, error):
-        self.node = node
+    def failure(self, error):
         self.error = error
         return self
 
@@ -433,9 +474,9 @@ class Parser:
     ########################################
 
     def parse(self):
-        res = self.expr()
+        res = self.var_def()
         if not res.error and self.current_tok.type != TT_EOF:
-            return res.failure(res.node, InvalidSyntaxError(
+            return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
                 "Expected '+', '-', '*', '/',  '**'"
             )).node, res.error
@@ -458,21 +499,25 @@ class Parser:
             res.register(self.advance())
             return res.success(FloatNode(tok))
 
+        elif tok.type == TT_IDENTIFIER:
+            res.register(self.advance())
+            return res.success(VarAccessNode(tok))
+
         elif tok.type == TT_LPAREN:
             res.register(self.advance())
-            expr = res.register(self.expr())
+            expr = res.register(self.var_def())
             if res.error:
                 return res
             if self.current_tok.type == TT_RPAREN:
                 res.register(self.advance())
                 return res.success(expr)
             else:
-                return res.failure(expr, InvalidSyntaxError(
+                return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
                     "Expected ')'"
                 ))
 
-        return res.failure(res.node, InvalidSyntaxError(
+        return res.failure(InvalidSyntaxError(
             tok.pos_start, tok.pos_end,
             "Expected int, float, or '('"
         ))
@@ -499,6 +544,73 @@ class Parser:
 
     def expr(self):
         return self.bin_op(self.term, (TT_PLUS, TT_MINUS))
+
+    def var_def(self):
+        res = ParseResult()
+
+        type_ = None
+        var_name = None
+        if self.current_tok.matches(TT_KEYWORD, "int"):
+            type_ = self.current_tok
+            res.register(self.advance())
+
+            if self.current_tok.type != TT_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected identifier"
+                ))
+
+            var_name = self.current_tok
+            res.register(self.advance())
+
+            if self.current_tok.type != TT_EQ:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected '='"
+                ))
+
+            res.register(self.advance())
+
+        elif self.current_tok.matches(TT_KEYWORD, "float"):
+            type_ = self.current_tok
+            res.register(self.advance())
+
+            if self.current_tok.type != TT_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected identifier"
+                ))
+
+            var_name = self.current_tok
+            res.register(self.advance())
+
+            if self.current_tok.type != TT_EQ:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected '='"
+                ))
+
+            res.register(self.advance())
+        elif self.current_tok.type == TT_IDENTIFIER:
+            var_name = self.current_tok
+            tmp = self.tok_idx
+            res.register(self.advance())
+
+            if self.current_tok.type == TT_EQ:
+                res.register(self.advance())
+            else:
+                var_name = None
+                self.tok_idx = tmp
+                self.current_tok = self.tokens[tmp]
+
+        expr = res.register(self.expr())
+        if res.error:
+            return res
+
+        if var_name is None:
+            return res.success(expr)
+        else:
+            return res.success(VarAssignNode(type_, var_name, expr))
 
     ########################################
 
@@ -647,6 +759,30 @@ class Context:
         self.display_name = display_name
         self.parent = parent
         self.parent_entry_pos = parent_entry_pos
+        self.symbol_table = None
+
+########################################
+# SYMBOL TABLE
+########################################
+
+class SymbolTable:
+    def __init__(self):
+        self.symbols = {}
+        self.types = {}
+        self.parent = None
+
+    def get(self, name):
+        value = self.symbols.get(name, None)
+        if value == None and self.parent:
+            return self.parent.get(name)
+        return value
+
+    def set(self, type_, name, value):
+        self.symbols[name] = value
+        self.types[name] = type_
+
+    def remove(self, name):
+        del self.symbols[name]
 
 ########################################
 # INTERPRETER
@@ -685,6 +821,61 @@ class Interpreter:
     def visit_FloatNode(self, node, context):
         return RuntimeResult().success(
             Number(node.tok.value, TT_FLOAT).set_pos(node.pos_start, node.pos_end).set_context(context))
+
+    def visit_VarAccessNode(self, node, context):
+        res = RuntimeResult()
+        var_name = node.var_name_tok.value
+        value = context.symbol_table.get(var_name)
+        if value is None:
+            return res.failure(NotDefinedError(
+                node.pos_start, node.pos_end, context,
+                "Variable `" + var_name + "` does not exist"
+            ))
+
+        if type(value).__name__ != "Number":
+            return res.success(Number(value, type(value).__name__.upper()))
+        return res.success(value)
+
+    def visit_VarAssignNode(self, node, context):
+        res = RuntimeResult()
+        var_type = node.type
+        var_name = node.var_name_tok.value
+        value = res.register(self.visit(node.value, context))
+        if res.error:
+            return res
+
+        if not var_type and context.symbol_table.get(var_name) is None:
+            return res.failure(NotDefinedError(
+                node.pos_start, node.pos_end, context,
+                "Variable `" + var_name + "` does not exist"
+            ))
+
+        if context.symbol_table.get(var_name) is not None and var_type is not None:
+            return res.failure(AlreadyDefinedError(
+                node.pos_start, node.pos_end, context,
+                "Cannot redefine variable `" + var_name + "`"
+            ))
+
+        if var_type and value.type.lower() != var_type.value:
+            return res.failure(TypeError_(
+                node.pos_start, node.pos_end, context,
+                "Cannot place type `" + str(value.type).lower() + "` in `" + var_type.value + "`"
+            ))
+
+        if not var_type and value.type.lower() != context.symbol_table.types[var_name]:
+            return res.failure(TypeError_(
+                node.pos_start, node.pos_end, context,
+                "Cannot place type `" + str(value.type).lower() + "` in `" + str(context.symbol_table.types[var_name]) + "`"
+            ))
+
+        if not var_type:
+            context.symbol_table.set(context.symbol_table.types[var_name], var_name, value)
+        else:
+            context.symbol_table.set(var_type.value, var_name, value)
+
+        if type(value).__name__ != "Number":
+            return res.success(Number(value, type(value).__name__.upper()))
+        return res.success(value)
 
     def visit_BinOpNode(self, node, context):
         res = RuntimeResult()
@@ -735,6 +926,9 @@ class Interpreter:
 # ENTRY (RUN)
 ########################################
 
+global_symbol_table = SymbolTable()
+global_symbol_table.set("int", "foo", 12)
+
 def run(fname, code, settings):
     # Lex the code given to us by ROSH or the command line
     lexer = Lexer(code, fname)
@@ -764,6 +958,7 @@ def run(fname, code, settings):
     # Execute code according to the AST from the parser
     interpreter = Interpreter()
     context = Context('<global>')
+    context.symbol_table = global_symbol_table
     result = interpreter.visit(ast, context)
 
     if result.error and settings["debug"]:
